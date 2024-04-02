@@ -1,0 +1,25 @@
+name: Workflow using the Grafana k6 setup action
+on:
+  push:
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Grafana k6
+      uses: ./
+      with:
+        k6-version: '0.49.0'
+    - run: k6 run ./dev/protocol.js --quiet
+    
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Grafana k6
+      uses: ./
+      with:
+        k6-version: '0.49.0'
+        browser: true
+    - run: k6 run ./dev/browser.js --quiet
