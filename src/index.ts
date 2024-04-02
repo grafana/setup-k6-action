@@ -23,10 +23,7 @@ export async function run(): Promise<void> {
             throw new Error('Browser is not supported on arm64')
         }
 
-        // TODO: Remove this after the hackathon
-        if (process.env.K6_HACKATHON === undefined) {
-            await setupk6(k6_version)
-        }
+        await setupk6(k6_version)
 
         if (browser) {
             core.exportVariable('K6_BROWSER_ARGS', 'no-sandbox')
