@@ -1,8 +1,9 @@
-import * as core from '@actions/core'
-import * as exec from '@actions/exec'
-import * as tc from '@actions/tool-cache'
-import chmodr from 'chmodr'
-import * as fs from 'fs-extra'
+import * as core from '@actions/core';
+import * as exec from '@actions/exec';
+import * as tc from '@actions/tool-cache';
+import { Octokit } from "@octokit/rest";
+import chmodr from 'chmodr';
+import * as fs from 'fs-extra';
 
 run()
 
@@ -12,7 +13,7 @@ run()
  */
 export async function run(): Promise<void> {
     try {
-        const k6_version = core.getInput('k6-version', { required: true })
+        const k6_version = core.getInput('k6-version', { required: false })
         const browser = core.getInput('browser') === 'true'
 
         if (process.platform !== 'linux') {
@@ -34,8 +35,23 @@ export async function run(): Promise<void> {
 }
 
 // TODO: Cache the k6 binary and add support for MacOS and Windows
-async function setupk6(version: string): Promise<string> {
+async function setupk6(version?: string): Promise<string> {
     let binaryName = ``
+
+    if (!version) {
+        // Get the latest version
+        const octokit = new Octokit();
+        const { data } = await octokit.repos.getLatestRelease({
+            owner: 'grafana',
+            repo: 'k6'
+        })
+        if (data.tag_name[0] === 'v') {
+            version = data.tag_name.slice(1) // remove the 'v' prefix from the version string
+        } else {
+            version = data.tag_name
+        }
+    }
+
     if (process.arch === "x64") {
         binaryName = `k6-v${version}-linux-amd64`
     } else if (process.arch === "arm64") {
