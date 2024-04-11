@@ -19,9 +19,9 @@ export async function run(): Promise<void> {
             throw new Error('Unsupported platform: ' + process.platform)
         }
 
-        if (process.arch === 'arm64' && !browser) {
-            throw new Error('Browser is not supported on arm64')
-        }
+        // if (process.arch === 'arm64' && !browser) {
+        //     throw new Error('Browser is not supported on arm64')
+        // }
 
         await setupk6(k6_version)
 

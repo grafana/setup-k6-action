@@ -31445,9 +31445,9 @@ async function run() {
         if (process.platform !== 'linux') {
             throw new Error('Unsupported platform: ' + process.platform);
         }
-        if (process.arch === 'arm64' && !browser) {
-            throw new Error('Browser is not supported on arm64');
-        }
+        // if (process.arch === 'arm64' && !browser) {
+        //     throw new Error('Browser is not supported on arm64')
+        // }
         await setupk6(k6_version);
         if (browser) {
             core.exportVariable('K6_BROWSER_ARGS', 'no-sandbox');
