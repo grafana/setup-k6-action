@@ -18,8 +18,7 @@ export async function run(): Promise<void> {
         if (process.platform !== 'linux') {
             throw new Error('Unsupported platform: ' + process.platform)
         }
-
-        if (process.arch === 'arm64' && !browser) {
+        if (process.arch === 'arm64' && browser) {
             throw new Error('Browser is not supported on arm64')
         }
 
