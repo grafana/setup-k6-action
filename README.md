@@ -51,8 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: grafana/setup-k6-action@v0.0.1
-      - uses: grafana/run-k6-action@v0.0.1
+      - uses: grafana/setup-k6-action@v1
+      - uses: grafana/run-k6-action@v1
         with:
           path: |
             ./tests/api*.js
@@ -69,10 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: grafana/setup-k6-action@v0.0.1
+      - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '0.49.0'
-      - uses: grafana/run-k6-action@v0.0.1
+      - uses: grafana/run-k6-action@v1
         with:
           path: |
             ./tests/api*.js
@@ -89,11 +89,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: grafana/setup-k6-action@v0.0.1
+      - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '0.49.0'
           browser: true
-      - uses: grafana/run-k6-action@v0.0.1
+      - uses: grafana/run-k6-action@v1
         with:
           path: |
             ./tests/api*.js
