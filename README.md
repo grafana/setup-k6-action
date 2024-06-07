@@ -11,8 +11,6 @@
 </div>
 
 # setup-k6-action
-> This GitHub Action is under active development 🧑‍🏭  
-> Please, use https://github.com/grafana/k6-action instead
 
 This action sets up a Grafana k6 environment for use in a GitHub Actions workflow by:
 
