@@ -35586,6 +35586,33 @@ class Macos {
         await exec.exec('brew', ['install', '--cask', 'google-chrome']);
     }
 }
+class Windows {
+    async checkChromeInstalled() {
+        let myOutput = '', myError = '', options = {
+            listeners: {
+                stdout: (data) => {
+                    myOutput += data.toString();
+                },
+                stderr: (data) => {
+                    myError += data.toString();
+                }
+            }
+        };
+        try {
+            await exec.exec('choco', ['list', '-i'], options);
+        }
+        catch (error) {
+            return false;
+        }
+        if (myOutput.includes('Google Chrome|')) {
+            return true;
+        }
+        return false;
+    }
+    async setupBrowser() {
+        await exec.exec('choco', ['install', 'googlechrome', '-y']);
+    }
+}
 class Linux {
     async checkChromeInstalled() {
         let myOutput = '', myError = '', options = {
@@ -35625,6 +35652,9 @@ async function initialiseBrowser() {
     }
     else if (platform.os === platform_1.OS.LINUX) {
         browserSetupClass = new Linux();
+    }
+    else if (platform.os === platform_1.OS.WINDOWS) {
+        browserSetupClass = new Windows();
     }
     else {
         throw new Error(`Unsupported platform: ${platform.os}`);
@@ -35751,6 +35781,7 @@ const BaseK6DownloadURL = 'https://github.com/grafana/k6/releases/download';
 const SUPPORTED_OS_TO_ARCH_MAP = {
     [platform_1.OS.LINUX]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
     [platform_1.OS.DARWIN]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
+    [platform_1.OS.WINDOWS]: [platform_1.Arch.AMD64]
 };
 async function getLatestK6Version() {
     let version = '';

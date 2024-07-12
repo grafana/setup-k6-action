@@ -40,6 +40,36 @@ class Macos implements Browser {
     }
 }
 
+class Windows implements Browser {
+    async checkChromeInstalled(): Promise<boolean> {
+        let myOutput = '', myError = '', options = {
+            listeners: {
+                stdout: (data: Buffer) => {
+                    myOutput += data.toString();
+                },
+                stderr: (data: Buffer) => {
+                    myError += data.toString();
+                }
+            }
+        };
+        try {
+            await exec.exec('choco', ['list', '-i'], options);
+        } catch (error) {
+            return false;
+        }
+
+        if (myOutput.includes('Google Chrome|')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    async setupBrowser(): Promise<void> {
+        await exec.exec('choco', ['install', 'googlechrome', '-y']);
+    }
+}
+
 class Linux implements Browser {
     async checkChromeInstalled(): Promise<boolean> {
         let myOutput = '', myError = '', options = {
@@ -82,6 +112,8 @@ export async function initialiseBrowser(): Promise<void> {
         browserSetupClass = new Macos();
     } else if (platform.os === OS.LINUX) {
         browserSetupClass = new Linux();
+    } else if (platform.os === OS.WINDOWS) {
+        browserSetupClass = new Windows();
     } else {
         throw new Error(`Unsupported platform: ${platform.os}`);
     }
