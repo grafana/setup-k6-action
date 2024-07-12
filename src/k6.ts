@@ -47,7 +47,7 @@ async function downloadAndExtractK6Binary(version: string, os: OS, architecture:
     const zipExtension = os === OS.LINUX ? 'tar.gz' : 'zip'
     const downloadUrl = `${BaseK6DownloadURL}/v${version}/${k6BinaryName}.${zipExtension}`
 
-    core.debug(`Downloading k6 from ${downloadUrl}`)
+    core.info(`Downloading k6 version ${version} from ${downloadUrl} for ${os} ${architecture}`)
 
 
     const download = await tc.downloadTool(downloadUrl)
