@@ -35524,6 +35524,131 @@ function wrappy (fn, cb) {
 
 /***/ }),
 
+/***/ 1233:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.initialiseBrowser = void 0;
+// Module to verify and setup the browser
+const core = __importStar(__nccwpck_require__(2186));
+const exec = __importStar(__nccwpck_require__(1514));
+const tc = __importStar(__nccwpck_require__(7784));
+const platform_1 = __nccwpck_require__(2999);
+class Macos {
+    async checkChromeInstalled() {
+        let myOutput = '', myError = '', options = {
+            listeners: {
+                stdout: (data) => {
+                    myOutput += data.toString();
+                },
+                stderr: (data) => {
+                    myError += data.toString();
+                }
+            }
+        };
+        try {
+            await exec.exec(`mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'"`, [], options);
+        }
+        catch (error) {
+            return false;
+        }
+        if (myOutput.includes('Chrome.app')) {
+            return true;
+        }
+        return false;
+    }
+    async setupBrowser() {
+        await exec.exec('brew', ['install', '--cask', 'google-chrome']);
+    }
+}
+class Linux {
+    async checkChromeInstalled() {
+        let myOutput = '', myError = '', options = {
+            listeners: {
+                stdout: (data) => {
+                    myOutput += data.toString();
+                },
+                stderr: (data) => {
+                    myError += data.toString();
+                }
+            }
+        };
+        try {
+            await exec.exec(`google-chrome`, ['--version'], options);
+        }
+        catch (error) {
+            return false;
+        }
+        if (myOutput.includes('Google Chrome')) {
+            return true;
+        }
+        return false;
+    }
+    async setupBrowser() {
+        const downloadKey = await tc.downloadTool('https://dl-ssl.google.com/linux/linux_signing_key.pub');
+        await exec.exec(`sudo apt-key add ${downloadKey}`);
+        await exec.exec(`sudo sh -c "echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' >> /etc/apt/sources.list.d/google-chrome.list"`);
+        await exec.exec('sudo apt-get update');
+        await exec.exec('sudo apt-get install -y google-chrome-stable');
+    }
+}
+async function initialiseBrowser() {
+    const platform = (0, platform_1.getPlatform)();
+    let browserSetupClass;
+    if (platform.os === platform_1.OS.DARWIN) {
+        browserSetupClass = new Macos();
+    }
+    else if (platform.os === platform_1.OS.LINUX) {
+        browserSetupClass = new Linux();
+    }
+    else {
+        throw new Error(`Unsupported platform: ${platform.os}`);
+    }
+    // Check if browser is already installed
+    const isBrowserInstalled = await browserSetupClass.checkChromeInstalled();
+    if (isBrowserInstalled) {
+        core.info('Browser is already installed, skipping installation');
+        return;
+    }
+    // Install browser
+    core.debug('Installing browser');
+    await browserSetupClass.setupBrowser();
+    // Check if browser is installed
+    const isBrowserInstalledAfterSetup = await browserSetupClass.checkChromeInstalled();
+    if (!isBrowserInstalledAfterSetup) {
+        throw new Error('Failed to install browser');
+    }
+}
+exports.initialiseBrowser = initialiseBrowser;
+
+
+/***/ }),
+
 /***/ 6144:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -35555,8 +35680,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
-const exec = __importStar(__nccwpck_require__(1514));
-const tc = __importStar(__nccwpck_require__(7784));
+const browser_1 = __nccwpck_require__(1233);
 const k6_1 = __nccwpck_require__(2657);
 run();
 /**
@@ -35567,13 +35691,10 @@ async function run() {
     try {
         const k6_version = core.getInput('k6-version', { required: false });
         const browser = core.getInput('browser') === 'true';
-        if (process.arch === 'arm64' && browser) {
-            throw new Error('Browser is not supported on arm64');
-        }
         await (0, k6_1.setupk6)(k6_version);
         if (browser) {
             core.exportVariable('K6_BROWSER_ARGS', 'no-sandbox');
-            await setupBrowser();
+            await (0, browser_1.initialiseBrowser)();
         }
     }
     catch (error) {
@@ -35582,14 +35703,6 @@ async function run() {
     }
 }
 exports.run = run;
-// TODO: Support MacOS and Windows
-async function setupBrowser() {
-    const downloadKey = await tc.downloadTool('https://dl-ssl.google.com/linux/linux_signing_key.pub');
-    await exec.exec(`sudo apt-key add ${downloadKey}`);
-    await exec.exec(`sudo sh -c "echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' >> /etc/apt/sources.list.d/google-chrome.list"`);
-    await exec.exec('sudo apt-get update');
-    await exec.exec('sudo apt-get install -y google-chrome-stable');
-}
 
 
 /***/ }),
