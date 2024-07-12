@@ -1,4 +1,4 @@
-name: Workflow using the Grafana k6 setup action on Windows runner
+name: Test on Windows runner
 on:
   push:
 

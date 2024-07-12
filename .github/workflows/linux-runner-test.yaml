@@ -1,4 +1,4 @@
-name: Workflow using the Grafana k6 setup action
+name: Test on Linux runner
 on:
   push:
 
@@ -12,7 +12,7 @@ jobs:
       with:
         k6-version: '0.49.0'
     - run: k6 run ./dev/protocol.js --quiet
-    
+
   browser:
     runs-on: ubuntu-latest
     steps:
