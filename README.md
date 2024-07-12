@@ -1,5 +1,5 @@
 <div align="center">
-  
+
   <img
     src="./k6.gif"
     width="600"
@@ -18,25 +18,23 @@ This action sets up a Grafana k6 environment for use in a GitHub Actions workflo
 - Installing Chrome for Browser Testing (optional).
 
 
-After that we can use the [run-k6-action](https://github.com/grafana/run-k6-action/) to execute the k6 tests in the GitHub Actions workflow. 
+After that we can use the [run-k6-action](https://github.com/grafana/run-k6-action/) to execute the k6 tests in the GitHub Actions workflow.
 
-> ⚠️ This action only supports Linux runners ⚠️
-
-## Inputs 
+## Inputs
 
 The following inputs can be used as `step.with` key:
 
-| Name | Type | Required | Description 
-| --- | --- | --- | --- |
-| `k6-version` | string | `false` | Specify the k6 version to use. e.g. `'0.49.0'`. If not set, latest K6 version will be used. 
-| `browser` | boolean |  `false` | Default `false`. If set to `true` chrome is also installed along with K6 for Browser testing. 
+| Name         | Type    | Required | Description                                                                                   |
+| ------------ | ------- | -------- | --------------------------------------------------------------------------------------------- |
+| `k6-version` | string  | `false`  | Specify the k6 version to use. e.g. `'0.49.0'`. If not set, latest K6 version will be used.   |
+| `browser`    | boolean | `false`  | Default `false`. If set to `true` chrome is also installed along with K6 for Browser testing. |
 
 
 ## Usage
 
-Following are some examples of using the workflow. 
+Following are some examples of using the workflow.
 
-### Basic 
+### Basic
 
 Uses the latest k6 version
 
@@ -56,7 +54,7 @@ jobs:
             ./tests/api*.js
 ```
 
-Specify which k6 version to use 
+Specify which k6 version to use
 
 ```yaml
 on:
