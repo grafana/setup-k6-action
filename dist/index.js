@@ -35641,7 +35641,10 @@ const SUPPORTED_OS_TO_ARCH_MAP = {
 };
 async function getLatestK6Version() {
     let version = '';
-    const octokit = new rest_1.Octokit();
+    const token = core.getInput('github-token', { required: false });
+    const octokit = new rest_1.Octokit({
+        auth: token
+    });
     const { data } = await octokit.repos.getLatestRelease({
         owner: 'grafana',
         repo: 'k6'
@@ -35655,6 +35658,14 @@ async function getLatestK6Version() {
     core.debug(`Latest k6 version is ${version}`);
     return version;
 }
+/**
+ * Downloads and extracts the k6 binary for the given version, OS and architecture
+ *
+ * @param {string} version - The version of k6 to download
+ * @param {OS} os - The OS for which to download the k6 binary
+ * @param {Arch} architecture - The architecture for which to download the k6 binary
+ * @return {*}  {Promise<[string, string]>} The path where the k6 binary is extracted and the name of the binary
+ */
 async function downloadAndExtractK6Binary(version, os, architecture) {
     const k6BinaryName = `k6-v${version}-${os}-${architecture}`;
     const zipExtension = os === platform_1.OS.LINUX ? 'tar.gz' : 'zip';
@@ -35685,44 +35696,13 @@ function addK6InPath(extractedPath, binaryName) {
     core.addPath(expectedPath);
     return expectedPath;
 }
-// class Linux implements SetupK6 {
-//     async setupk6(version: string): Promise<string> {
-//         let binaryName = ``
-//         const platform = getPlatform()
-//         if (platform.arch === Arch.AMD64) {
-//             binaryName = `k6-v${version}-linux-amd64`
-//         } else if (platform.arch === Arch.ARM64) {
-//             binaryName = `k6-v${version}-linux-arm64`
-//         } else {
-//             throw new Error('Unsupported architecture for linux: ' + platform.arch)
-//         }
-//         const downloadUrl = `${BaseK6DownloadURL}v${version}/${binaryName}.tar.gz`
-//         core.debug(`Downloading k6 from ${downloadUrl}`)
-//         const download = await tc.downloadTool(downloadUrl)
-//         const extractedPath = await tc.extractTar(download)
-//     }
-// }
-// class MacOS implements SetupK6 {
-//     async setupk6(version?: string): Promise<string> {
-//         let binaryName = ``
-//         const platform = getPlatform()
-//         if (platform.arch === Arch.AMD64) {
-//             binaryName = `k6-v${version}-macos-amd64`
-//         } else if (platform.arch === Arch.ARM64) {
-//             binaryName = `k6-v${version}-macos-arm64`
-//         } else {
-//             throw new Error('Unsupported architecture for macos: ' + platform.arch)
-//         }
-//         return ''
-//     }
-// }
 async function setupk6(version) {
     const platform = (0, platform_1.getPlatform)();
+    core.debug(`Setting up k6 for ${platform.os} ${platform.arch}`);
     if (!(platform.os in SUPPORTED_OS_TO_ARCH_MAP)) {
         throw new Error(`Unsupported platform: ${platform.os}`);
     }
     const supportedArchitectures = SUPPORTED_OS_TO_ARCH_MAP[platform.os];
-    console.log(platform.arch, supportedArchitectures);
     if (!supportedArchitectures.includes(platform.arch)) {
         throw new Error(`Unsupported architecture: ${platform.arch}. Supported architectures for ${platform.os} are: ${supportedArchitectures}`);
     }
@@ -35733,16 +35713,6 @@ async function setupk6(version) {
     const [extractedPath, binaryName] = await downloadAndExtractK6Binary(version, platform.os, platform.arch);
     const k6executablePath = addK6InPath(extractedPath, binaryName);
     return k6executablePath;
-    // let k6SetupClass: SetupK6;
-    // if (platform.os === OS.LINUX) {
-    //     k6SetupClass = new Linux();
-    // } else if (platform.os === OS.DARWIN) {
-    //     k6SetupClass = new MacOS();
-    // }
-    // else {
-    //     throw new Error(`Unsupported platform: ${platform.os}`);
-    // }
-    // return k6SetupClass.setupk6(version);
 }
 exports.setupk6 = setupk6;
 

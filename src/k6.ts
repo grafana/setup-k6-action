@@ -14,7 +14,10 @@ const SUPPORTED_OS_TO_ARCH_MAP: { [key: string]: Arch[] } = {
 
 async function getLatestK6Version(): Promise<string> {
     let version = '';
-    const octokit = new Octokit();
+    const token = core.getInput('github-token', { required: false });
+    const octokit = new Octokit({
+        auth: token
+    });
     const { data } = await octokit.repos.getLatestRelease({
         owner: 'grafana',
         repo: 'k6'
