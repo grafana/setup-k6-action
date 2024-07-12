@@ -35559,28 +35559,43 @@ const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const tc = __importStar(__nccwpck_require__(7784));
 const platform_1 = __nccwpck_require__(2999);
+/**
+ * Check if the browser is installed
+ *
+ * @param {string} command - The command to check if the browser is installed
+ * @param {string[]} args - The arguments to pass to the command
+ * @param {string} checkString - The string to check in the output of the command
+ *
+ * @return {*}  {Promise<boolean>} - Returns true if the browser is installed, false otherwise
+ */
+async function checkIfBrowserInstalled(command, args, checkString) {
+    let myOutput = '', myError = '', options = {
+        listeners: {
+            stdout: (data) => {
+                myOutput += data.toString();
+            },
+            stderr: (data) => {
+                myError += data.toString();
+            }
+        }
+    };
+    try {
+        await exec.exec(command, args, options);
+        core.debug(`~checkIfBrowserInstalled~ Output: ${myOutput}`);
+        core.debug(`~checkIfBrowserInstalled~ Error: ${myError}`);
+    }
+    catch (error) {
+        core.error(`Error in checking chrome version: ${error}`);
+        return false;
+    }
+    if (myOutput.includes(checkString)) {
+        return true;
+    }
+    return false;
+}
 class Macos {
     async checkChromeInstalled() {
-        let myOutput = '', myError = '', options = {
-            listeners: {
-                stdout: (data) => {
-                    myOutput += data.toString();
-                },
-                stderr: (data) => {
-                    myError += data.toString();
-                }
-            }
-        };
-        try {
-            await exec.exec(`mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'"`, [], options);
-        }
-        catch (error) {
-            return false;
-        }
-        if (myOutput.includes('Chrome.app')) {
-            return true;
-        }
-        return false;
+        return await checkIfBrowserInstalled(`mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'"`, [], 'Chrome.app');
     }
     async setupBrowser() {
         await exec.exec('brew', ['install', '--cask', 'google-chrome']);
@@ -35588,26 +35603,7 @@ class Macos {
 }
 class Windows {
     async checkChromeInstalled() {
-        let myOutput = '', myError = '', options = {
-            listeners: {
-                stdout: (data) => {
-                    myOutput += data.toString();
-                },
-                stderr: (data) => {
-                    myError += data.toString();
-                }
-            }
-        };
-        try {
-            await exec.exec('choco', ['list', '-i'], options);
-        }
-        catch (error) {
-            return false;
-        }
-        if (myOutput.includes('Google Chrome|')) {
-            return true;
-        }
-        return false;
+        return await checkIfBrowserInstalled('choco', ['list', '-i'], 'Google Chrome|');
     }
     async setupBrowser() {
         await exec.exec('choco', ['install', 'googlechrome', '-y']);
@@ -35615,26 +35611,7 @@ class Windows {
 }
 class Linux {
     async checkChromeInstalled() {
-        let myOutput = '', myError = '', options = {
-            listeners: {
-                stdout: (data) => {
-                    myOutput += data.toString();
-                },
-                stderr: (data) => {
-                    myError += data.toString();
-                }
-            }
-        };
-        try {
-            await exec.exec(`google-chrome`, ['--version'], options);
-        }
-        catch (error) {
-            return false;
-        }
-        if (myOutput.includes('Google Chrome')) {
-            return true;
-        }
-        return false;
+        return await checkIfBrowserInstalled('google-chrome', ['--version'], 'Google Chrome');
     }
     async setupBrowser() {
         const downloadKey = await tc.downloadTool('https://dl-ssl.google.com/linux/linux_signing_key.pub');
@@ -35666,7 +35643,7 @@ async function initialiseBrowser() {
         return;
     }
     // Install browser
-    core.debug('Installing browser');
+    core.info('Installing browser');
     await browserSetupClass.setupBrowser();
     // Check if browser is installed
     const isBrowserInstalledAfterSetup = await browserSetupClass.checkChromeInstalled();
@@ -35814,7 +35791,7 @@ async function downloadAndExtractK6Binary(version, os, architecture) {
     const k6BinaryName = `k6-v${version}-${os}-${architecture}`;
     const zipExtension = os === platform_1.OS.LINUX ? 'tar.gz' : 'zip';
     const downloadUrl = `${BaseK6DownloadURL}/v${version}/${k6BinaryName}.${zipExtension}`;
-    core.debug(`Downloading k6 from ${downloadUrl}`);
+    core.info(`Downloading k6 version ${version} from ${downloadUrl} for ${os} ${architecture}`);
     const download = await tc.downloadTool(downloadUrl);
     const extractedPath = await tc.extractTar(download);
     return [extractedPath, k6BinaryName];
