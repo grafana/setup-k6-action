@@ -14,9 +14,6 @@ export async function run(): Promise<void> {
         const k6_version = core.getInput('k6-version', { required: false })
         const browser = core.getInput('browser') === 'true'
 
-        if (process.platform !== 'linux') {
-            throw new Error('Unsupported platform: ' + process.platform)
-        }
         if (process.arch === 'arm64' && browser) {
             throw new Error('Browser is not supported on arm64')
         }

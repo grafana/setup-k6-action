@@ -35567,9 +35567,6 @@ async function run() {
     try {
         const k6_version = core.getInput('k6-version', { required: false });
         const browser = core.getInput('browser') === 'true';
-        if (process.platform !== 'linux') {
-            throw new Error('Unsupported platform: ' + process.platform);
-        }
         if (process.arch === 'arm64' && browser) {
             throw new Error('Browser is not supported on arm64');
         }
@@ -35637,7 +35634,11 @@ const rest_1 = __nccwpck_require__(5375);
 const chmodr_1 = __importDefault(__nccwpck_require__(8979));
 const fs_extra_1 = __nccwpck_require__(5630);
 const platform_1 = __nccwpck_require__(2999);
-const BaseK6DownloadURL = 'https://github.com/grafana/k6/releases/download/';
+const BaseK6DownloadURL = 'https://github.com/grafana/k6/releases/download';
+const SUPPORTED_OS_TO_ARCH_MAP = {
+    [platform_1.OS.LINUX]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
+    [platform_1.OS.DARWIN]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
+};
 async function getLatestK6Version() {
     let version = '';
     const octokit = new rest_1.Octokit();
@@ -35651,63 +35652,97 @@ async function getLatestK6Version() {
     else {
         version = data.tag_name;
     }
+    core.debug(`Latest k6 version is ${version}`);
     return version;
+}
+async function downloadAndExtractK6Binary(version, os, architecture) {
+    const k6BinaryName = `k6-v${version}-${os}-${architecture}`;
+    const zipExtension = os === platform_1.OS.LINUX ? 'tar.gz' : 'zip';
+    const downloadUrl = `${BaseK6DownloadURL}/v${version}/${k6BinaryName}.${zipExtension}`;
+    core.debug(`Downloading k6 from ${downloadUrl}`);
+    const download = await tc.downloadTool(downloadUrl);
+    const extractedPath = await tc.extractTar(download);
+    return [extractedPath, k6BinaryName];
 }
 /**
  * Adds the k6 binary in the PATH allowing to use `k6` directly in the workflow
  *
- * @param {string} downloadedK6Path - The path where the downloaded k6 binary is located
+ * @param {string} extractedPath - The path where the downloaded k6 binary is located
  * @param {string} binaryName - The name of the downloaded k6 binary
  *
  * @returns {string} Complete path where the k6 binary is located and can be used from
  */
-function addK6InPath(downloadedK6Path, binaryName) {
-    const downloadedPath = `${downloadedK6Path}/${binaryName}`;
-    const path = `${downloadedK6Path}/k6`;
-    (0, fs_extra_1.renameSync)(downloadedPath, path);
-    (0, chmodr_1.default)(path, 0o0755, err => {
+function addK6InPath(extractedPath, binaryName) {
+    // Rename .../k6-vX.Y.Z-OS-ARCH to .../k6
+    const downloadedK6BinaryPath = `${extractedPath}/${binaryName}`;
+    const expectedPath = `${extractedPath}/k6`;
+    (0, fs_extra_1.renameSync)(downloadedK6BinaryPath, expectedPath);
+    (0, chmodr_1.default)(expectedPath, 0o0755, err => {
         if (err) {
             throw err;
         }
     });
-    core.addPath(path);
-    return path;
+    core.addPath(expectedPath);
+    return expectedPath;
 }
-class Linux {
-    async setupk6(version) {
-        let binaryName = ``;
-        const platform = (0, platform_1.getPlatform)();
-        if (!version) {
-            // Get the latest version
-            version = await getLatestK6Version();
-        }
-        if (platform.arch === platform_1.Arch.AMD64) {
-            binaryName = `k6-v${version}-linux-amd64`;
-        }
-        else if (platform.arch === platform_1.Arch.ARM64) {
-            binaryName = `k6-v${version}-linux-arm64`;
-        }
-        else {
-            throw new Error('Unsupported architecture for linux: ' + platform.arch);
-        }
-        const downloadUrl = `${BaseK6DownloadURL}v${version}/${binaryName}.tar.gz`;
-        core.debug(`Downloading k6 from ${downloadUrl}`);
-        const download = await tc.downloadTool(downloadUrl);
-        const extractedPath = await tc.extractTar(download);
-        const k6executablePath = addK6InPath(extractedPath, binaryName);
-        return k6executablePath;
-    }
-}
+// class Linux implements SetupK6 {
+//     async setupk6(version: string): Promise<string> {
+//         let binaryName = ``
+//         const platform = getPlatform()
+//         if (platform.arch === Arch.AMD64) {
+//             binaryName = `k6-v${version}-linux-amd64`
+//         } else if (platform.arch === Arch.ARM64) {
+//             binaryName = `k6-v${version}-linux-arm64`
+//         } else {
+//             throw new Error('Unsupported architecture for linux: ' + platform.arch)
+//         }
+//         const downloadUrl = `${BaseK6DownloadURL}v${version}/${binaryName}.tar.gz`
+//         core.debug(`Downloading k6 from ${downloadUrl}`)
+//         const download = await tc.downloadTool(downloadUrl)
+//         const extractedPath = await tc.extractTar(download)
+//     }
+// }
+// class MacOS implements SetupK6 {
+//     async setupk6(version?: string): Promise<string> {
+//         let binaryName = ``
+//         const platform = getPlatform()
+//         if (platform.arch === Arch.AMD64) {
+//             binaryName = `k6-v${version}-macos-amd64`
+//         } else if (platform.arch === Arch.ARM64) {
+//             binaryName = `k6-v${version}-macos-arm64`
+//         } else {
+//             throw new Error('Unsupported architecture for macos: ' + platform.arch)
+//         }
+//         return ''
+//     }
+// }
 async function setupk6(version) {
     const platform = (0, platform_1.getPlatform)();
-    let k6SetupClass;
-    if (platform.os === 'linux') {
-        k6SetupClass = new Linux();
-    }
-    else {
+    if (!(platform.os in SUPPORTED_OS_TO_ARCH_MAP)) {
         throw new Error(`Unsupported platform: ${platform.os}`);
     }
-    return k6SetupClass.setupk6(version);
+    const supportedArchitectures = SUPPORTED_OS_TO_ARCH_MAP[platform.os];
+    console.log(platform.arch, supportedArchitectures);
+    if (!supportedArchitectures.includes(platform.arch)) {
+        throw new Error(`Unsupported architecture: ${platform.arch}. Supported architectures for ${platform.os} are: ${supportedArchitectures}`);
+    }
+    if (!version) {
+        // Get the latest version
+        version = await getLatestK6Version();
+    }
+    const [extractedPath, binaryName] = await downloadAndExtractK6Binary(version, platform.os, platform.arch);
+    const k6executablePath = addK6InPath(extractedPath, binaryName);
+    return k6executablePath;
+    // let k6SetupClass: SetupK6;
+    // if (platform.os === OS.LINUX) {
+    //     k6SetupClass = new Linux();
+    // } else if (platform.os === OS.DARWIN) {
+    //     k6SetupClass = new MacOS();
+    // }
+    // else {
+    //     throw new Error(`Unsupported platform: ${platform.os}`);
+    // }
+    // return k6SetupClass.setupk6(version);
 }
 exports.setupk6 = setupk6;
 
