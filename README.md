@@ -46,7 +46,7 @@ jobs:
   protocol:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
       - uses: grafana/run-k6-action@v1
         with:
@@ -64,7 +64,7 @@ jobs:
   protocol:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '0.49.0'
@@ -84,7 +84,7 @@ jobs:
   protocol:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '0.49.0'
