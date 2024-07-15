@@ -35552,17 +35552,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const tc = __importStar(__nccwpck_require__(7784));
-const rest_1 = __nccwpck_require__(5375);
-const chmodr_1 = __importDefault(__nccwpck_require__(8979));
-const fs = __importStar(__nccwpck_require__(5630));
+const k6_1 = __nccwpck_require__(2657);
 run();
 /**
  * The main function for the action.
@@ -35572,13 +35567,10 @@ async function run() {
     try {
         const k6_version = core.getInput('k6-version', { required: false });
         const browser = core.getInput('browser') === 'true';
-        if (process.platform !== 'linux') {
-            throw new Error('Unsupported platform: ' + process.platform);
-        }
         if (process.arch === 'arm64' && browser) {
             throw new Error('Browser is not supported on arm64');
         }
-        await setupk6(k6_version);
+        await (0, k6_1.setupk6)(k6_version);
         if (browser) {
             core.exportVariable('K6_BROWSER_ARGS', 'no-sandbox');
             await setupBrowser();
@@ -35590,45 +35582,6 @@ async function run() {
     }
 }
 exports.run = run;
-// TODO: Cache the k6 binary and add support for MacOS and Windows
-async function setupk6(version) {
-    let binaryName = ``;
-    if (!version) {
-        // Get the latest version
-        const octokit = new rest_1.Octokit();
-        const { data } = await octokit.repos.getLatestRelease({
-            owner: 'grafana',
-            repo: 'k6'
-        });
-        if (data.tag_name[0] === 'v') {
-            version = data.tag_name.slice(1); // remove the 'v' prefix from the version string
-        }
-        else {
-            version = data.tag_name;
-        }
-    }
-    if (process.arch === "x64") {
-        binaryName = `k6-v${version}-linux-amd64`;
-    }
-    else if (process.arch === "arm64") {
-        binaryName = `k6-v${version}-linux-arm64`;
-    }
-    else {
-        throw new Error('Unsupported architecture: ' + process.arch);
-    }
-    const download = await tc.downloadTool(`https://github.com/grafana/k6/releases/download/v${version}/${binaryName}.tar.gz`);
-    const extractedPath = await tc.extractTar(download);
-    const extractedBinaryPath = `${extractedPath}/${binaryName}`;
-    const binaryPath = `${extractedPath}/k6`;
-    fs.renameSync(extractedBinaryPath, binaryPath);
-    (0, chmodr_1.default)(binaryPath, 0o0755, err => {
-        if (err) {
-            throw err;
-        }
-    });
-    core.addPath(binaryPath);
-    return binaryPath;
-}
 // TODO: Support MacOS and Windows
 async function setupBrowser() {
     const downloadKey = await tc.downloadTool('https://dl-ssl.google.com/linux/linux_signing_key.pub');
@@ -35637,6 +35590,190 @@ async function setupBrowser() {
     await exec.exec('sudo apt-get update');
     await exec.exec('sudo apt-get install -y google-chrome-stable');
 }
+
+
+/***/ }),
+
+/***/ 2657:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.setupk6 = void 0;
+// Module to setup k6
+const core = __importStar(__nccwpck_require__(2186));
+const tc = __importStar(__nccwpck_require__(7784));
+const rest_1 = __nccwpck_require__(5375);
+const chmodr_1 = __importDefault(__nccwpck_require__(8979));
+const fs_extra_1 = __nccwpck_require__(5630);
+const platform_1 = __nccwpck_require__(2999);
+const BaseK6DownloadURL = 'https://github.com/grafana/k6/releases/download';
+const SUPPORTED_OS_TO_ARCH_MAP = {
+    [platform_1.OS.LINUX]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
+    [platform_1.OS.DARWIN]: [platform_1.Arch.AMD64, platform_1.Arch.ARM64],
+};
+async function getLatestK6Version() {
+    let version = '';
+    const token = core.getInput('github-token', { required: false });
+    const octokit = new rest_1.Octokit({
+        auth: token
+    });
+    const { data } = await octokit.repos.getLatestRelease({
+        owner: 'grafana',
+        repo: 'k6'
+    });
+    if (data.tag_name[0] === 'v') {
+        version = data.tag_name.slice(1); // remove the 'v' prefix from the version string
+    }
+    else {
+        version = data.tag_name;
+    }
+    core.debug(`Latest k6 version is ${version}`);
+    return version;
+}
+/**
+ * Downloads and extracts the k6 binary for the given version, OS and architecture
+ *
+ * @param {string} version - The version of k6 to download
+ * @param {OS} os - The OS for which to download the k6 binary
+ * @param {Arch} architecture - The architecture for which to download the k6 binary
+ * @return {*}  {Promise<[string, string]>} The path where the k6 binary is extracted and the name of the binary
+ */
+async function downloadAndExtractK6Binary(version, os, architecture) {
+    const k6BinaryName = `k6-v${version}-${os}-${architecture}`;
+    const zipExtension = os === platform_1.OS.LINUX ? 'tar.gz' : 'zip';
+    const downloadUrl = `${BaseK6DownloadURL}/v${version}/${k6BinaryName}.${zipExtension}`;
+    core.debug(`Downloading k6 from ${downloadUrl}`);
+    const download = await tc.downloadTool(downloadUrl);
+    const extractedPath = await tc.extractTar(download);
+    return [extractedPath, k6BinaryName];
+}
+/**
+ * Adds the k6 binary in the PATH allowing to use `k6` directly in the workflow
+ *
+ * @param {string} extractedPath - The path where the downloaded k6 binary is located
+ * @param {string} binaryName - The name of the downloaded k6 binary
+ *
+ * @returns {string} Complete path where the k6 binary is located and can be used from
+ */
+function addK6InPath(extractedPath, binaryName) {
+    // Rename .../k6-vX.Y.Z-OS-ARCH to .../k6
+    const downloadedK6BinaryPath = `${extractedPath}/${binaryName}`;
+    const expectedPath = `${extractedPath}/k6`;
+    (0, fs_extra_1.renameSync)(downloadedK6BinaryPath, expectedPath);
+    (0, chmodr_1.default)(expectedPath, 0o0755, err => {
+        if (err) {
+            throw err;
+        }
+    });
+    core.addPath(expectedPath);
+    return expectedPath;
+}
+async function setupk6(version) {
+    const platform = (0, platform_1.getPlatform)();
+    core.debug(`Setting up k6 for ${platform.os} ${platform.arch}`);
+    if (!(platform.os in SUPPORTED_OS_TO_ARCH_MAP)) {
+        throw new Error(`Unsupported platform: ${platform.os}`);
+    }
+    const supportedArchitectures = SUPPORTED_OS_TO_ARCH_MAP[platform.os];
+    if (!supportedArchitectures.includes(platform.arch)) {
+        throw new Error(`Unsupported architecture: ${platform.arch}. Supported architectures for ${platform.os} are: ${supportedArchitectures}`);
+    }
+    if (!version) {
+        // Get the latest version
+        version = await getLatestK6Version();
+    }
+    const [extractedPath, binaryName] = await downloadAndExtractK6Binary(version, platform.os, platform.arch);
+    const k6executablePath = addK6InPath(extractedPath, binaryName);
+    return k6executablePath;
+}
+exports.setupk6 = setupk6;
+
+
+/***/ }),
+
+/***/ 2999:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+// Taken from https://github.com/browser-actions/setup-chrome/blob/master/src/platform.ts
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getPlatform = exports.getArch = exports.getOS = exports.Arch = exports.OS = void 0;
+const node_os_1 = __importDefault(__nccwpck_require__(612));
+exports.OS = {
+    DARWIN: "macos",
+    LINUX: "linux",
+    WINDOWS: "windows",
+};
+exports.Arch = {
+    AMD64: "amd64",
+    I686: "i686",
+    ARM64: "arm64",
+};
+const getOS = () => {
+    const platform = node_os_1.default.platform();
+    switch (platform) {
+        case "linux":
+            return exports.OS.LINUX;
+        case "darwin":
+            return exports.OS.DARWIN;
+        case "win32":
+            return exports.OS.WINDOWS;
+    }
+    throw new Error(`Unsupported platform: ${platform}`);
+};
+exports.getOS = getOS;
+const getArch = () => {
+    const arch = node_os_1.default.arch();
+    switch (arch) {
+        case "x32":
+            return exports.Arch.I686;
+        case "x64":
+            return exports.Arch.AMD64;
+        case "arm64":
+            return exports.Arch.ARM64;
+    }
+    throw new Error(`Unsupported arch: ${arch}`);
+};
+exports.getArch = getArch;
+const getPlatform = () => {
+    return {
+        os: (0, exports.getOS)(),
+        arch: (0, exports.getArch)(),
+    };
+};
+exports.getPlatform = getPlatform;
 
 
 /***/ }),
@@ -35758,6 +35895,14 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:events");
+
+/***/ }),
+
+/***/ 612:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:os");
 
 /***/ }),
 

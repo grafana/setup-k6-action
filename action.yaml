@@ -12,6 +12,10 @@ inputs:
   browser:
     description: 'Installs the browser dependencies for k6'
     required: false
+  github-token:
+    description: 'GitHub API Access Token'
+    default: ${{ github.token }}
+    required: false
 
 outputs:
   k6-version:
