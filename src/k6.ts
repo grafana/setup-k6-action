@@ -7,9 +7,10 @@ import { renameSync } from 'fs-extra';
 import { Arch, getPlatform, OS } from "./platform";
 
 const BaseK6DownloadURL = 'https://github.com/grafana/k6/releases/download'
-const SUPPORTED_OS_TO_ARCH_MAP: { [key: string]: Arch[] } = {
+const SUPPORTED_OS_TO_ARCH_MAP: { [key in OS]: Arch[] } = {
     [OS.LINUX]: [Arch.AMD64, Arch.ARM64],
     [OS.DARWIN]: [Arch.AMD64, Arch.ARM64],
+    [OS.WINDOWS]: [Arch.AMD64]
 }
 
 async function getLatestK6Version(): Promise<string> {
@@ -46,7 +47,7 @@ async function downloadAndExtractK6Binary(version: string, os: OS, architecture:
     const zipExtension = os === OS.LINUX ? 'tar.gz' : 'zip'
     const downloadUrl = `${BaseK6DownloadURL}/v${version}/${k6BinaryName}.${zipExtension}`
 
-    core.debug(`Downloading k6 from ${downloadUrl}`)
+    core.info(`Downloading k6 version ${version} from ${downloadUrl} for ${os} ${architecture}`)
 
 
     const download = await tc.downloadTool(downloadUrl)

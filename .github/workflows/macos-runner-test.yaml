@@ -1,4 +1,4 @@
-name: Workflow using the Grafana k6 setup action on MacOS runner
+name: Test on MacOS runner
 on:
   push:
 
