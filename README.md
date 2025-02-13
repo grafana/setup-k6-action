@@ -26,8 +26,8 @@ The following inputs can be used as `step.with` key:
 
 | Name         | Type    | Required | Description                                                                                   |
 | ------------ | ------- | -------- | --------------------------------------------------------------------------------------------- |
-| `k6-version` | string  | `false`  | Specify the k6 version to use. e.g. `'0.49.0'`. If not set, latest K6 version will be used.   |
-| `browser`    | boolean | `false`  | Default `false`. If set to `true` chrome is also installed along with K6 for Browser testing. |
+| `k6-version` | string  | `false`  | Specify the k6 version to use. e.g. `'0.49.0'`. If not set, latest k6 version will be used.   |
+| `browser`    | boolean | `false`  | Default `false`. If set to `true` chrome is also installed along with k6 for Browser testing. |
 
 
 ## Usage
