@@ -2,11 +2,16 @@ name: Test on Windows runner
 on:
   push:
 
+permissions:
+  contents: read
+
 jobs:
   protocol:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - name: Setup Grafana k6
       uses: ./
       with:
@@ -19,6 +24,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - name: Setup Grafana k6
       uses: ./
     - run: k6 run ./dev/protocol.js --quiet
@@ -27,6 +34,8 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        persist-credentials: false
     - name: Setup Grafana k6
       uses: ./
       with:
