@@ -14,7 +14,7 @@
     "@types/chmodr": "1.0.3",
     "@types/fs-extra": "11.0.4",
     "@types/node": "20.19.24",
-    "typescript": "5.3.3"
+    "typescript": "5.9.3"
   },
   "dependencies": {
     "@actions/core": "^1.10.1",
