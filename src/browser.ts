@@ -48,7 +48,9 @@ async function checkIfBrowserInstalled(command: string, args: string[], checkStr
 
 class Macos implements Browser {
     async checkChromeInstalled(): Promise<boolean> {
-        return await checkIfBrowserInstalled(`mdfind "kMDItemCFBundleIdentifier == 'com.google.Chrome'"`, [], 'Chrome.app');
+        // Check for Chrome.app in the standard location where Homebrew installs it
+        // Use ls to check if the directory exists (more reliable than mdfind which depends on Spotlight indexing)
+        return await checkIfBrowserInstalled('ls', ['-d', '/Applications/Google Chrome.app'], 'Google Chrome.app');
     }
 
     async setupBrowser(): Promise<void> {
