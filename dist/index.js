@@ -8475,15 +8475,20 @@ function onLink (destStat, src, dest, opts) {
     if (opts.dereference) {
       resolvedDest = path.resolve(process.cwd(), resolvedDest)
     }
-    if (stat.isSrcSubdir(resolvedSrc, resolvedDest)) {
-      throw new Error(`Cannot copy '${resolvedSrc}' to a subdirectory of itself, '${resolvedDest}'.`)
-    }
+    // If both symlinks resolve to the same target, they are still distinct symlinks
+    // that can be copied/overwritten. Only check subdirectory constraints when
+    // the resolved paths are different.
+    if (resolvedSrc !== resolvedDest) {
+      if (stat.isSrcSubdir(resolvedSrc, resolvedDest)) {
+        throw new Error(`Cannot copy '${resolvedSrc}' to a subdirectory of itself, '${resolvedDest}'.`)
+      }
 
-    // prevent copy if src is a subdir of dest since unlinking
-    // dest in this case would result in removing src contents
-    // and therefore a broken symlink would be created.
-    if (stat.isSrcSubdir(resolvedDest, resolvedSrc)) {
-      throw new Error(`Cannot overwrite '${resolvedDest}' with '${resolvedSrc}'.`)
+      // prevent copy if src is a subdir of dest since unlinking
+      // dest in this case would result in removing src contents
+      // and therefore a broken symlink would be created.
+      if (stat.isSrcSubdir(resolvedDest, resolvedSrc)) {
+        throw new Error(`Cannot overwrite '${resolvedDest}' with '${resolvedSrc}'.`)
+      }
     }
     return copyLink(resolvedSrc, dest)
   }
@@ -8511,6 +8516,7 @@ const { mkdirs } = __nccwpck_require__(1089)
 const { pathExists } = __nccwpck_require__(2881)
 const { utimesMillis } = __nccwpck_require__(6934)
 const stat = __nccwpck_require__(887)
+const { asyncIteratorConcurrentProcess } = __nccwpck_require__(353)
 
 async function copy (src, dest, opts = {}) {
   if (typeof opts === 'function') {
@@ -8618,28 +8624,20 @@ async function onDir (srcStat, destStat, src, dest, opts) {
     await fs.mkdir(dest)
   }
 
-  const promises = []
-
-  // loop through the files in the current directory to copy everything
-  for await (const item of await fs.opendir(src)) {
+  // iterate through the files in the current directory to copy everything
+  await asyncIteratorConcurrentProcess(await fs.opendir(src), async (item) => {
     const srcItem = path.join(src, item.name)
     const destItem = path.join(dest, item.name)
 
-    promises.push(
-      runFilter(srcItem, destItem, opts).then(include => {
-        if (include) {
-          // only copy the item if it matches the filter function
-          return stat.checkPaths(srcItem, destItem, 'copy', opts).then(({ destStat }) => {
-            // If the item is a copyable file, `getStatsAndPerformCopy` will copy it
-            // If the item is a directory, `getStatsAndPerformCopy` will call `onDir` recursively
-            return getStatsAndPerformCopy(destStat, srcItem, destItem, opts)
-          })
-        }
-      })
-    )
-  }
-
-  await Promise.all(promises)
+    const include = await runFilter(srcItem, destItem, opts)
+    // only copy the item if it matches the filter function
+    if (include) {
+      const { destStat } = await stat.checkPaths(srcItem, destItem, 'copy', opts)
+      // If the item is a copyable file, `getStatsAndPerformCopy` will copy it
+      // If the item is a directory, `getStatsAndPerformCopy` will call `onDir` recursively
+      await getStatsAndPerformCopy(destStat, srcItem, destItem, opts)
+    }
+  })
 
   if (!destStat) {
     await fs.chmod(dest, srcStat.mode)
@@ -8668,15 +8666,20 @@ async function onLink (destStat, src, dest, opts) {
   if (opts.dereference) {
     resolvedDest = path.resolve(process.cwd(), resolvedDest)
   }
-  if (stat.isSrcSubdir(resolvedSrc, resolvedDest)) {
-    throw new Error(`Cannot copy '${resolvedSrc}' to a subdirectory of itself, '${resolvedDest}'.`)
-  }
+  // If both symlinks resolve to the same target, they are still distinct symlinks
+  // that can be copied/overwritten. Only check subdirectory constraints when
+  // the resolved paths are different.
+  if (resolvedSrc !== resolvedDest) {
+    if (stat.isSrcSubdir(resolvedSrc, resolvedDest)) {
+      throw new Error(`Cannot copy '${resolvedSrc}' to a subdirectory of itself, '${resolvedDest}'.`)
+    }
 
-  // do not copy if src is a subdir of dest since unlinking
-  // dest in this case would result in removing src contents
-  // and therefore a broken symlink would be created.
-  if (stat.isSrcSubdir(resolvedDest, resolvedSrc)) {
-    throw new Error(`Cannot overwrite '${resolvedDest}' with '${resolvedSrc}'.`)
+    // do not copy if src is a subdir of dest since unlinking
+    // dest in this case would result in removing src contents
+    // and therefore a broken symlink would be created.
+    if (stat.isSrcSubdir(resolvedDest, resolvedSrc)) {
+      throw new Error(`Cannot overwrite '${resolvedDest}' with '${resolvedSrc}'.`)
+    }
   }
 
   // copy the link
@@ -9725,6 +9728,43 @@ function removeSync (path) {
 module.exports = {
   remove: u(remove),
   removeSync
+}
+
+
+/***/ }),
+
+/***/ 353:
+/***/ ((module) => {
+
+"use strict";
+
+
+// https://github.com/jprichardson/node-fs-extra/issues/1056
+// Performing parallel operations on each item of an async iterator is
+// surprisingly hard; you need to have handlers in place to avoid getting an
+// UnhandledPromiseRejectionWarning.
+// NOTE: This function does not presently handle return values, only errors
+async function asyncIteratorConcurrentProcess (iterator, fn) {
+  const promises = []
+  for await (const item of iterator) {
+    promises.push(
+      fn(item).then(
+        () => null,
+        (err) => err ?? new Error('unknown error')
+      )
+    )
+  }
+  await Promise.all(
+    promises.map((promise) =>
+      promise.then((possibleErr) => {
+        if (possibleErr !== null) throw possibleErr
+      })
+    )
+  )
+}
+
+module.exports = {
+  asyncIteratorConcurrentProcess
 }
 
 
@@ -35296,15 +35336,25 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.initialiseBrowser = void 0;
+exports.initialiseBrowser = initialiseBrowser;
 // Module to verify and setup the browser
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
@@ -35404,7 +35454,6 @@ async function initialiseBrowser() {
         throw new Error('Failed to install browser');
     }
 }
-exports.initialiseBrowser = initialiseBrowser;
 
 
 /***/ }),
@@ -35430,15 +35479,25 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.run = void 0;
+exports.run = run;
 const core = __importStar(__nccwpck_require__(7484));
 const browser_1 = __nccwpck_require__(4079);
 const k6_1 = __nccwpck_require__(9854);
@@ -35462,7 +35521,6 @@ async function run() {
             core.setFailed(error.message);
     }
 }
-exports.run = run;
 
 
 /***/ }),
@@ -35488,18 +35546,28 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.setupk6 = void 0;
+exports.setupk6 = setupk6;
 // Module to setup k6
 const core = __importStar(__nccwpck_require__(7484));
 const tc = __importStar(__nccwpck_require__(3472));
@@ -35588,7 +35656,6 @@ async function setupk6(version) {
     const k6executablePath = addK6InPath(extractedPath, binaryName);
     return k6executablePath;
 }
-exports.setupk6 = setupk6;
 
 
 /***/ }),
