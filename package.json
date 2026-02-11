@@ -13,7 +13,7 @@
   "devDependencies": {
     "@types/chmodr": "1.0.3",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "20.19.31",
+    "@types/node": "20.19.33",
     "typescript": "5.9.3"
   },
   "dependencies": {
