@@ -2,7 +2,7 @@
 import * as core from '@actions/core';
 import * as tc from '@actions/tool-cache';
 import { Octokit } from "@octokit/rest";
-import chmodr from 'chmodr';
+import { chmodr } from 'chmodr';
 import { renameSync } from 'fs-extra';
 import { Arch, getPlatform, OS } from "./platform";
 
@@ -65,18 +65,14 @@ async function downloadAndExtractK6Binary(version: string, os: OS, architecture:
  *
  * @returns {string} Complete path where the k6 binary is located and can be used from
  */
-function addK6InPath(extractedPath: string, binaryName: string) {
+async function addK6InPath(extractedPath: string, binaryName: string) {
     // Rename .../k6-vX.Y.Z-OS-ARCH to .../k6
     const downloadedK6BinaryPath = `${extractedPath}/${binaryName}`
     const expectedPath = `${extractedPath}/k6`
 
     renameSync(downloadedK6BinaryPath, expectedPath)
 
-    chmodr(expectedPath, 0o0755, err => {
-        if (err) {
-            throw err
-        }
-    })
+    await chmodr(expectedPath, 0o0755)
 
     core.addPath(expectedPath)
 
@@ -105,7 +101,7 @@ export async function setupk6(version?: string): Promise<string> {
 
     const [extractedPath, binaryName] = await downloadAndExtractK6Binary(version, platform.os, platform.arch)
 
-    const k6executablePath = addK6InPath(extractedPath, binaryName);
+    const k6executablePath = await addK6InPath(extractedPath, binaryName);
 
     return k6executablePath;
 }
